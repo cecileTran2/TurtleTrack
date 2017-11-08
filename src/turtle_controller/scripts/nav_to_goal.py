@@ -3,6 +3,7 @@
 import rospy
 import std_msgs.msg
 import geometry_msgs.msg
+<<<<<<< HEAD
 from turtlesim.msg import Pose
 import sys
 import time
@@ -106,10 +107,6 @@ def callback(data):
     #pub_left = rospy.Publisher('/pioneer_p3dx/leftWheelCommand',std_msgs.msg.Float64, queue_size=10)
 
    # pub_right = rospy.Publisher('/pioneer_p3dx/rightWheelCommand', std_msgs.msg.Float64, queue_size=10)
-
-       
-    # spin() simply keeps python from exiting until this node is stopped
-    # rospy.spin()
     
 
 if __name__ == '__main__':
@@ -125,6 +122,3 @@ if __name__ == '__main__':
     rospy.Subscriber("/turtle1/pose", Pose, callback)
 
     rospy.spin()
-
-    #while not rospy.is_shutdown():
-    #    pass
