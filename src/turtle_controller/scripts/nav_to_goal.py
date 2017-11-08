@@ -3,7 +3,6 @@
 import rospy
 import std_msgs.msg
 import geometry_msgs.msg
-<<<<<<< HEAD
 from turtlesim.msg import Pose
 import sys
 import time
