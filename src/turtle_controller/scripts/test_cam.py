@@ -51,22 +51,6 @@ def callback_reconfigure(config, level):
 def callback(ros_data):
     
     cv2.namedWindow('mask')
-    #h_low = cv2.getTrackbarPos('H_low', 'mask')
-    #s_low = cv2.getTrackbarPos('S_low', 'mask')
-    #v_low = cv2.getTrackbarPos('V_low', 'mask')
-    
-    #cv2.createTrackbar('H_low','mask',h,360,nothing)
-    #cv2.createTrackbar('S_low','mask',s,255,nothing)
-    #cv2.createTrackbar('V_low','mask',v,255,nothing)
-
-    #h_up = cv2.getTrackbarPos('H_up', 'mask')
-    #s_up = cv2.getTrackbarPos('S_up', 'mask')
-    #v_up = cv2.getTrackbarPos('V_up', 'mask')
-    
-    #cv2.createTrackbar('H_up','mask',h,360,nothing)
-    #cv2.createTrackbar('S_up','mask',s,255,nothing)
-    #cv2.createTrackbar('V_up','mask',v,255,nothing)
-    #cv2.waitKey(1000) # GUI needs time to launch...
 
     # attribute values from rqt_config
     h_low, h_up = h_values
