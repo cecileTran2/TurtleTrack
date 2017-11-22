@@ -76,26 +76,48 @@ def callback(ros_data):
     mask = cv2.inRange(hsv_color, lower_range, upper_range)
     mask = erode_dilate_filter(mask)
     cnts = contourDetect(mask)
+    mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB)
 
     all_bars = []
     for c in cnts:
+        M = cv2.moments(c)
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+        all_bars.append((cX, cY))
+
+    xc, yc = 263, 352
+    b_min = (0, 0)
+    d_min = 10000000
+    for b in all_bars:
+        x, y = b[0], b[1]
+        d = math.sqrt((x-xc)**2 + (y-yc)**2)
+        if d < d_min:
+            d_min = d
+            b_min = b
+
+    print('-'*20)
+    print(all_bars)
+    print("best bar : ", b_min)
+        
+    for i, c in enumerate(cnts):
         try:
-	    # compute the center of the contour
-	    M = cv2.moments(c)
-	    cX = int(M["m10"] / M["m00"])
-	    cY = int(M["m01"] / M["m00"])
- 
+            print(all_bars[i])
+            print(list(all_bars[i]) == list(b_min))
+            color = (255, 0, 120) if list(all_bars[i]) == list(b_min) else (255, 255, 255)
+            print(color)
+            cX = all_bars[i][0]
+            cY = all_bars[i][1]
 	    # draw the contour and center of the shape on the image
 	    cv2.drawContours(mask, [c], -1, (0, 255, 0), 2)
-	    cv2.circle(mask, (cX, cY), 7, (255, 255, 255), -1)
+	    cv2.circle(mask, (cX, cY), 7, color, -1)
 	    cv2.putText(mask, "center", (cX - 20, cY - 20),
 		cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
             
-            all_bars.append((cX, cY))
+            
         except Exception as e:
             print("An exception has occurred : ", e)
 
-    print(all_bars)
+    
 
     cv2.imshow('mask', mask)
     
