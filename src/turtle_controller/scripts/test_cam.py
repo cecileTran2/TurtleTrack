@@ -101,12 +101,15 @@ def callback(ros_data):
         
     for i, c in enumerate(cnts):
         try:
+            color = (255, 0, 120) if list(all_bars[i]) == list(b_min) else (255, 255, 255)
+            
             print(all_bars[i])
             print(list(all_bars[i]) == list(b_min))
-            color = (255, 0, 120) if list(all_bars[i]) == list(b_min) else (255, 255, 255)
             print(color)
+            
             cX = all_bars[i][0]
             cY = all_bars[i][1]
+            
 	    # draw the contour and center of the shape on the image
 	    cv2.drawContours(mask, [c], -1, (0, 255, 0), 2)
 	    cv2.circle(mask, (cX, cY), 7, color, -1)
@@ -134,9 +137,5 @@ if __name__ == '__main__':
     #pub_cmd = rospy.Publisher('/turtle1/cmd_vel', geometry_msgs.msg.Twist, queue_size=10)
     
     rospy.Subscriber("/image_raw/compressed", sensor_msgs.msg.CompressedImage, callback)
-    print('toto')
     rospy.spin()
     
-    
-    #while not rospy.is_shutdown():
-     #   cv2.waitKey(10)
