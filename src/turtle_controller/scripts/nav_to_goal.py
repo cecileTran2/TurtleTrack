@@ -147,12 +147,12 @@ def callback(data):
     theta_init = normalise_angle(data.theta)
 
     # debug print:
-    print "position_x", x_init
-    print "position_y", y_init
-    print "position_theta", theta_init
+    print("position_x", x_init)
+    print("position_y", y_init)
+    print("position_theta", theta_init)
 
-    print "arrived_theta", arrived_theta
-    print "arrived_position", arrived_position
+    print("arrived_theta", arrived_theta)
+    print("arrived_position", arrived_position)
 
     msg = geometry_msgs.msg.Twist()
 
@@ -215,7 +215,7 @@ def callback(data):
         print ("Franklin au rapport, destination atteinte mon colonel!")
 
     pub_cmd.publish(msg)
-    
+
 
 if __name__ == '__main__':
 
