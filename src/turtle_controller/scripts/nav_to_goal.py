@@ -219,8 +219,6 @@ def callback(data):
 
 if __name__ == '__main__':
 
-    print "coucou henri! :D"
-
     x_goal = float(sys.argv[1])
     y_goal = float(sys.argv[2])
     theta_goal = float(sys.argv[3])

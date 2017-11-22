@@ -7,6 +7,7 @@ find_package(catkin REQUIRED
   geometry_msgs
   message_generation
   std_msgs
+  roscpp
 )
 catkin_python_setup()
 
@@ -17,6 +18,11 @@ generate_dynamic_reconfigure_options(cfg/PTZ.cfg)
 
 catkin_package()
 
+## Declare a cpp executable
+#add_executable(move_axis nodes/move_axis.cpp)
+#target_link_libraries (move_axis ${catkin_LIBRARIES})
+#target_compile_options (move_axis PUBLIC -O3 -std=c++17 )
+
 install(PROGRAMS
   nodes/axis.py
   nodes/axis_ptz.py
@@ -24,6 +30,7 @@ install(PROGRAMS
   nodes/teleop.py
   nodes/teleop_speed_control.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+
 
 install(DIRECTORY launch tests
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
