@@ -17,21 +17,84 @@ import copy
 from sensor_msgs.msg import Image, CameraInfo
 from axis_camera.msg import Axis
 
-
+IRIS_VALUE = 500
 
 class PanTiltController:
 
     def __init__(self):
+
+        self.camera_info = None
+        self.coordinates = None
+
+        # Subscribers
         self.camera_info_sub = rospy.Subscriber('/state', 
             Axis, self.camera_callback, queue_size = 1)
         self.coordinates_turtle = rospy.Subscriber('/coordinates', 
             geometry_msgs.msg.Point, self.coordinates_callback, queue_size = 1)
 
+        # Publishers
+        self.cmd_pub = rospy.Publisher('cmd', Axis, queue_size = 1)
+
     def camera_callback(self, msg):
+        self.camera_info = msg
+        print('-'*30)
+        print('CAMERA : ', msg)
+        self.convert()
         print('CAMERA : ', msg)
 
+        time.sleep(1)
+        self.cmd_pub.publish(self.camera_info)
+
     def coordinates_callback(self, msg):
-        print('COORDS : ', msg)
+        self.coordinates = msg
+        #print('COORDS : ', msg)
+
+    def convert(self):
+        print('#####################"CONVERTING')
+
+        PI = math.pi
+
+        zoom = self.camera_info.zoom
+        tilt = self.camera_info.tilt
+        pan = self.camera_info.pan
+        brightness = self.camera_info.brightness
+        iris = self.camera_info.iris
+        autofocus = self.camera_info.autofocus
+
+        theta = 4.189301e+001-6.436043e-003*zoom+2.404497e-007*zoom*zoom
+
+        focale = self.coordinates.x/math.tan((PI*theta/180.0)/2)
+
+        xc, yc = 263, 352
+        x = xc - self.coordinates.x
+        y = yc - self.coordinates.y
+        z = focale
+
+        norme = math.sqrt(x*x + y*y + z*z)
+        x /= norme
+        y /= norme
+        z /= norme
+
+        beta0 = -(PI*pan/180.0)
+        alpha0 = -(PI*tilt/180.0)
+
+        X = math.cos(beta0)*x + math.sin(alpha0) * math.sin(beta0)*y - math.cos(alpha0)* math.sin(beta0)*z
+        Y = math.cos(alpha0)*y + math.sin(alpha0)*z
+        Z = math.sin(beta0)*x - math.sin(alpha0)* math.cos(beta0)*y + math.cos(alpha0)* math.cos(beta0)*z
+
+        alpha = math.atan2(Y, math.sqrt(X*X + Z*Z))
+        beta = -math.atan2(X, Z);
+
+
+        pan = -(180.0*beta/PI)
+        tilt = -(180.0*alpha/PI)
+
+        self.camera_info.pan = pan
+        self.camera_info.tilt = tilt
+        self.camera_info.zoom = zoom
+        #self.camera_info.iris = IRIS_VALUE
+
+
 
 
 if __name__ == '__main__':
