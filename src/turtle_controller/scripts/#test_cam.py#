@@ -13,7 +13,6 @@ import cv2
 from dynamic_reconfigure.server import Server
 from turtle_controller.cfg import HSVParamsConfig
 import copy
-import message_filters
 
 
 # global variables
@@ -49,7 +48,7 @@ def callback_reconfigure(config, level):
     v_values[1] = config['v_up']
     return config
     
-def coordinates_callback(ros_data):
+def callback(ros_data):
     
     cv2.namedWindow('mask')
 
@@ -86,7 +85,6 @@ def coordinates_callback(ros_data):
         cY = int(M["m01"] / M["m00"])
         all_bars.append((cX, cY))
 
-    # Take the best barycenter : the one the closest to the center
     xc, yc = 263, 352
     b_min = (0, 0)
     d_min = 10000000
@@ -97,10 +95,17 @@ def coordinates_callback(ros_data):
             d_min = d
             b_min = b
 
+    print('-'*20)
+    print(all_bars)
+    print("best bar : ", b_min)
+        
     for i, c in enumerate(cnts):
         try:
-            # Colorize differently if the point is the best bar
             color = (255, 0, 120) if list(all_bars[i]) == list(b_min) else (255, 255, 255)
+            
+            print(all_bars[i])
+            print(list(all_bars[i]) == list(b_min))
+            print(color)
             
             cX = all_bars[i][0]
             cY = all_bars[i][1]
@@ -115,13 +120,9 @@ def coordinates_callback(ros_data):
         except Exception as e:
             print("An exception has occurred : ", e)
 
+    
+
     cv2.imshow('mask', mask)
-
-    msg = geometry_msgs.msg.Point()
-
-    msg.x, msg.y = b_min
-    msg.z = 0
-    coordinates_pub.publish(msg)
     
     cv2.waitKey(1)
 
@@ -135,9 +136,6 @@ if __name__ == '__main__':
     
     #pub_cmd = rospy.Publisher('/turtle1/cmd_vel', geometry_msgs.msg.Twist, queue_size=10)
     
-    rospy.Subscriber("/image_raw/compressed", sensor_msgs.msg.CompressedImage, coordinates_callback)
-    #msg = geometry_msgs.msg.Pose2D()
-    coordinates_pub = rospy.Publisher('/coordinates', geometry_msgs.msg.Point, queue_size=10)
-
+    rospy.Subscriber("/image_raw/compressed", sensor_msgs.msg.CompressedImage, callback)
     rospy.spin()
     

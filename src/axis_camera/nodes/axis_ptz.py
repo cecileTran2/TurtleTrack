@@ -299,6 +299,7 @@ def main():
     # create new PTZ object and start dynamic_reconfigure server
     my_ptz = AxisPTZ(**args)
     srv = Server(PTZConfig, my_ptz.callback)
+    print(srv)
     rospy.spin()
 
 if __name__ == "__main__":
