@@ -25,7 +25,8 @@ class PanTiltController:
 
         self.camera_info = None
         self.coordinates = None
-        self.i = 0
+        self.mode = "search"
+        self.sens = 1
 
         # Subscribers
         self.camera_info_sub = rospy.Subscriber('/state', 
@@ -40,10 +41,7 @@ class PanTiltController:
 
     def camera_callback(self, msg):
         self.camera_info = msg
-        print('-'*30)
-        print('CAMERA : ', msg)
         self.convert()
-        print('CAMERA : ', msg)
 
         time.sleep(0.2)
         self.cmd_pub.publish(self.camera_info)
@@ -54,11 +52,6 @@ class PanTiltController:
 
     def convert(self):
 
-        print('#####################"CONVERTING')
-        print('COORDS : ', self.coordinates)
-        print('camera_ifo : ', self.camera_info)
-        print('#####################"CONVERTING')
-
         zoom = self.camera_info.zoom
         tilt = self.camera_info.tilt
         pan = self.camera_info.pan
@@ -67,23 +60,23 @@ class PanTiltController:
         autofocus = self.camera_info.autofocus
 
         if self.coordinates.x or self.coordinates.y:
-            print('>>>>>>> JE DETECTE UN TRUC LOL')
+            self.mode = 'track'
+        else:
+            self.mode = 'search'
+
+        if self.mode == 'track':
+
+            print('Mode Track')
 
             PI = math.pi
-            #xc, yc = 263, 352
             xc, yc = 352, 263
 
             theta = 4.189301e+001-6.436043e-003*zoom+2.404497e-007*zoom*zoom
 
             focale = xc/math.tan((PI*theta/180.0)/2)
 
-            #x, y = 20.0, 20.0
-            #x = xc - x
-            #y = yc - y
             x = self.coordinates.x - xc
             y = self.coordinates.y - yc
-            #x = xc - self.coordinates.x
-            #y = yc - self.coordinates.y
             z = focale
 
             norme = math.sqrt(x*x + y*y + z*z)
@@ -109,20 +102,21 @@ class PanTiltController:
             self.camera_info.zoom = zoom
             self.camera_info.iris = IRIS_VALUE
 
-        else:
-            print('///////JE VOIS RIEN MDR XDDDDDD')
+        elif self.mode == 'search':
+            self.camera_info.tilt = -30.0
+            self.camera_info.pan += self.sens * 10
+            print('Mode Search')
 
-            # self.camera_info.pan = pan 
-            # self.camera_info.tilt = tilt
-            # self.camera_info.zoom = zoom
-            # self.camera_info.iris = IRIS_VALUE
+        if self.camera_info.pan >= 180.0 or self.camera_info.pan <= -180.0:
+            self.sens = - self.sens
+            self.camera_info.pan += self.sens * 10.0
+
+        print(self.camera_info.pan)
  
             
 if __name__ == '__main__':
 
-    
     rospy.init_node('pan_tilt', anonymous=True)
     pantilt_controller = PanTiltController()
 
     rospy.spin()
-    
