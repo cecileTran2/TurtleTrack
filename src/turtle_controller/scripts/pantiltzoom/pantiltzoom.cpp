@@ -7,7 +7,7 @@ std::pair<double,double> pantiltzoom(double u,   double v,
 {
   double focale,theta,alpha0,beta0,alpha,beta;
   double x,y,z,X,Y,Z,norme;
-  theta=4.189301e+001-6.436043e-003*zoom+2.404497e-007*zoom*zoom;
+  theta = 4.189301e+001-6.436043e-003*zoom+2.404497e-007*zoom*zoom;
   focale=u0/std::tan((M_PI*theta/180.0)/2);
 
   x=u-u0;y=v-v0;z=focale;
