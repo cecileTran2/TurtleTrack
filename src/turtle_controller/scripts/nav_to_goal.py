@@ -9,14 +9,15 @@ import time
 import numpy
 import math
 import sys
+import nav_msgs.msg
 
 
-LINEAR_ERROR = 0.03
-ANGULAR_ERROR = 0.01
+LINEAR_ERROR = 0.2
+ANGULAR_ERROR = 0.02
 
 
-ANGULAR_VELOCITY = 0.5
-LINEAR_VELOCITY = 1
+ANGULAR_VELOCITY = 0.3
+LINEAR_VELOCITY = 0.25
 
 
 def equal_signe(x,y):
@@ -25,6 +26,15 @@ def equal_signe(x,y):
     else:
         return False
 
+def quater2yaw(q):
+
+    #il lui faut l 'objet pose.pose.orientation
+
+    yaw = math.atan2(2.0*(q.y*q.z + q.w*q.x), q.w*q.w - q.x*q.x - q.y*q.y + q.z*q.z);
+    pitch = math.asin(-2.0*(q.x*q.z - q.w*q.y))
+    roll = math.atan2(2.0*(q.x*q.y + q.w*q.z), q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z)
+
+    return yaw, pitch, roll
 
 def vitesse_rotation(angle_initial, angle_final, vitesse_angulaire = 1.0, linear_error = None):
     global msg
@@ -140,19 +150,47 @@ def walk_franklin(x_i, y_i, x_f, y_f, linear_velocity, linear_error):
 
 def callback(data):
 
-    global pub_cmd, msg, arrived_position, angular_velocity, arrived_theta, linear_error
+    global pub_cmd, msg, arrived_position, angular_velocity, arrived_theta, linear_error, x_robot_init, y_robot_init, theta_robot_init
 
-    x_init = data.x
-    y_init = data.y
-    theta_init = normalise_angle(data.theta)
+    print(x_robot_init, y_robot_init, theta_robot_init)
 
-    # debug print:
-    print("position_x", x_init)
-    print("position_y", y_init)
-    print("position_theta", theta_init)
+    x_robot = data.pose.pose.position.x
+    y_robot = data.pose.pose.position.y
+    
+    print('#'*50)
+
+    # print('x_goal : ', x_goal)
+    # print('y_goal : ', y_goal)
+    #print('theta_goal : ', theta_goal)
+
+    #print('data.pose.pose.orientation : ', data.pose.pose.orientation)
+    yaw, pitch, roll = quater2yaw(data.pose.pose.orientation)
+    #print('roll : ', roll)
+    theta_robot = normalise_angle(roll)
+
+    # print('x_robot : ', x_robot)
+    # print('y_robot : ', y_robot)
+    #print('theta_robot : ', theta_robot)
+    #print('theta_robot_init : ', theta_robot_init)
+
+    if x_robot_init is None:
+        x_robot_init, y_robot_init, theta_robot_init = x_robot, y_robot, theta_robot
+        # print('x_robot_init : ', x_robot_init)
+        # print('y_robot_init : ', y_robot_init)
+        print('theta_robot_init : ', theta_robot_init)
+
+
+    x_carrelage = -(x_robot - x_robot_init)
+    y_carrelage = y_robot - y_robot_init
+    theta_carrelage = normalise_angle(theta_robot - theta_robot_init)
+
+    print('x_carrelage : ', x_carrelage)
+    print('y_carrelage : ', y_carrelage)
+    #print('theta_carrelage : ', theta_carrelage)
+
 
     print("arrived_theta", arrived_theta)
-    print("arrived_position", arrived_position)
+    # print("arrived_position", arrived_position)
 
     msg = geometry_msgs.msg.Twist()
 
@@ -161,55 +199,63 @@ def callback(data):
         # si la tortue n'a pas encore atteint sa position spatiale, sa position angulaire voulue est l'orientation
         # vers la position finale
 
-        theta_obj = get_theta_obj(x_i=x_init, y_i=y_init, x_f=x_goal, y_f=y_goal)
+        #theta_obj = get_theta_obj(x_i=x_carrelage, y_i=y_carrelage, x_f=x_goal, y_f=y_goal)
+        theta_obj = get_theta_obj(x_i=0, y_i=0, x_f=x_goal, y_f=y_goal)
+        print('theta_obj : ', theta_obj)
+        #theta_obj = 0.5
 
     else:
 
         # sinon c'est l'angle final voulu
 
         theta_obj = theta_goal
+        print('theta_obj : ', theta_obj)
 
     if not arrived_theta and not arrived_position:
 
-        angular_velocity = vitesse_rotation(angle_initial=theta_init,
+        angular_velocity = vitesse_rotation(angle_initial=theta_carrelage,
                                             angle_final=theta_obj,
                                             vitesse_angulaire=ANGULAR_VELOCITY)
 
-        rotate_franklin(x_i=x_init, y_i=y_init, x_f=x_goal, y_f=y_goal,
-                        angle_initial=theta_init,
+        rotate_franklin(x_i=x_carrelage, y_i=y_carrelage, x_f=x_goal, y_f=y_goal,
+                        angle_initial=theta_carrelage,
                         angle_final=theta_obj,
                         angular_velocity=angular_velocity,
                         angular_error=ANGULAR_ERROR)
 
-        arrived_theta = abs(theta_obj - theta_init) < ANGULAR_ERROR
-        real_angular_error = abs(theta_obj - theta_init)
-        linear_error = get_linear_error(x_i=x_init, y_i=y_init, x_f=x_goal, y_f=y_goal,
+        arrived_theta = abs(theta_obj - theta_carrelage) < ANGULAR_ERROR
+
+        print ('theta obj', theta_obj)
+        # print ('theta_carrelage', theta_carrelage)
+
+        real_angular_error = abs(theta_obj - theta_carrelage)
+        linear_error = get_linear_error(x_i=x_carrelage, y_i=y_carrelage, x_f=x_goal, y_f=y_goal,
                                         angular_error=ANGULAR_ERROR)
 
     elif arrived_theta and not arrived_position:
 
-        walk_franklin(x_i=x_init, y_i=y_init, x_f=x_goal, y_f=y_goal,
+        walk_franklin(x_i=x_carrelage, y_i=y_carrelage, x_f=x_goal, y_f=y_goal,
                       linear_velocity=LINEAR_VELOCITY,
                       linear_error=linear_error)
 
-        arrived_position = (abs(x_goal - x_init) < linear_error and abs(y_goal - y_init) < linear_error)
+        arrived_position = (abs(x_goal - x_carrelage) < linear_error and abs(y_goal - y_carrelage) < linear_error)
 
         if arrived_position:
             arrived_theta = False
 
     elif arrived_position and not arrived_theta:
 
-            angular_velocity = vitesse_rotation(angle_initial=theta_init,
+            angular_velocity = vitesse_rotation(angle_initial=theta_carrelage,
                                                 angle_final=theta_obj,
                                                 vitesse_angulaire=ANGULAR_VELOCITY)
 
-            rotate_franklin(x_i=x_init, y_i=y_init, x_f=x_goal, y_f=y_goal,
-                            angle_initial=theta_init,
+            rotate_franklin(x_i=x_carrelage, y_i=y_carrelage, x_f=x_goal, y_f=y_goal,
+                            angle_initial=theta_carrelage,
                             angle_final=theta_goal,
                             angular_velocity=angular_velocity,
                             angular_error=ANGULAR_ERROR)
 
-            arrived_theta = abs(theta_obj - theta_init) < ANGULAR_ERROR
+            arrived_theta = abs(theta_obj - theta_carrelage) < ANGULAR_ERROR
 
     else:
         print ("Franklin au rapport, destination atteinte mon colonel!")
@@ -219,11 +265,17 @@ def callback(data):
 
 if __name__ == '__main__':
 
+    print('***********************************')
+
     x_goal = float(sys.argv[1])
     y_goal = float(sys.argv[2])
     theta_goal = float(sys.argv[3])
 
     theta_goal = normalise_angle(theta_goal)
+
+    x_robot_init, y_robot_init, theta_robot_init = None, None, None
+
+    print(x_robot_init, y_robot_init, theta_robot_init)
 
     arrived_position = False
     arrived_theta = False
@@ -234,7 +286,9 @@ if __name__ == '__main__':
     rospy.init_node('nav_to_goal', anonymous=True)
     msg = geometry_msgs.msg.Twist()
 
-    pub_cmd = rospy.Publisher('/turtle1/cmd_vel', geometry_msgs.msg.Twist, queue_size=10)
-    rospy.Subscriber("/turtle1/pose", Pose, callback)
+    #pub_cmd = rospy.Publisher('/turtle1/cmd_vel', geometry_msgs.msg.Twist, queue_size=10)
+    pub_cmd = rospy.Publisher('/cmd_vel_mux/input/teleop', geometry_msgs.msg.Twist, queue_size=10)
+    #rospy.Subscriber("/turtle1/pose", Pose, callback)
+    rospy.Subscriber("/odom", nav_msgs.msg.Odometry, callback)
 
 rospy.spin()    # keeps your node from exiting until the node has been shutdown.

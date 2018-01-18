@@ -27,6 +27,7 @@ class PanTiltController:
         self.coordinates = None
         self.mode = "search"
         self.sens = 1
+        self.track_file = 'track_file.txt'
 
         # Subscribers
         self.camera_info_sub = rospy.Subscriber('/state', 
@@ -38,12 +39,19 @@ class PanTiltController:
         self.cmd_pub = rospy.Publisher('cmd', Axis, queue_size = 1)
 
 
-
     def camera_callback(self, msg):
+
+        def save_new_track():
+            with open(self.track_file, 'a') as f:
+                s = '{},{},{},{}\n'.format(self.camera_info.pan, 
+                    self.camera_info.tilt, self.coordinates.x, self.coordinates.y)
+                f.write(s)
+
         self.camera_info = msg
         self.convert()
 
         time.sleep(0.2)
+        save_new_track()
         self.cmd_pub.publish(self.camera_info)
 
     def coordinates_callback(self, msg):
