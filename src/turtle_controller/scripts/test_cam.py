@@ -87,7 +87,9 @@ def coordinates_callback(ros_data):
         all_bars.append((cX, cY))
 
     # Take the best barycenter : the one the closest to the center
-    xc, yc = 263, 352
+    #xc, yc = 263, 352
+    xc, yc = 355, 275
+    #350,287
     b_min = (0, 0)
     d_min = 10000000
     for b in all_bars:

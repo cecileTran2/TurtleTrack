@@ -138,7 +138,7 @@ class PanTiltController:
             print('Mode Track')
 
             PI = math.pi
-            xc, yc = 352, 263
+            xc, yc = 355, 275
 
             theta = 4.189301e+001-6.436043e-003*zoom+2.404497e-007*zoom*zoom
 

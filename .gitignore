@@ -1,0 +1,16 @@
+*~
+*.pyc
+__pycache__/*
+
+build/*
+devel/*
+
+track_file.txt
+
+.catkin_workspace
+cv2
+frames.gv
+frames.pdf
+np
+srv/*
+sys
