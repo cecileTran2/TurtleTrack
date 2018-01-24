@@ -13,11 +13,11 @@ import nav_msgs.msg
 
 
 LINEAR_ERROR = 0.2
-ANGULAR_ERROR = 0.02
+ANGULAR_ERROR = 0.002
 
 
 ANGULAR_VELOCITY = 0.3
-LINEAR_VELOCITY = 0.25
+LINEAR_VELOCITY = 0.1
 
 
 def equal_signe(x,y):
@@ -28,7 +28,7 @@ def equal_signe(x,y):
 
 def quater2yaw(q):
 
-    #il lui faut l 'objet pose.pose.orientation
+    #il lui faut l'objet pose.pose.orientation
 
     yaw = math.atan2(2.0*(q.y*q.z + q.w*q.x), q.w*q.w - q.x*q.x - q.y*q.y + q.z*q.z);
     pitch = math.asin(-2.0*(q.x*q.z - q.w*q.y))
@@ -72,6 +72,9 @@ def get_theta_obj(x_i, x_f, y_i, y_f, marge_erreur = 0.0):
 
 
     # rend theta_obj, le robot doit etre dans l'angle theta_obj pour se diriger en ligne droite vers sa cible
+
+    if x_i == x_f:
+        return math.pi/2 #sinon division par 0 si xi = xf
 
     tan_theta_obj = (y_i - y_f)/(x_i - x_f)
 
@@ -179,15 +182,13 @@ def callback(data):
         # print('y_robot_init : ', y_robot_init)
         print('theta_robot_init : ', theta_robot_init)
 
-
-    x_carrelage = -(x_robot - x_robot_init)
+    x_carrelage = x_robot - x_robot_init
     y_carrelage = y_robot - y_robot_init
     theta_carrelage = normalise_angle(theta_robot - theta_robot_init)
 
     print('x_carrelage : ', x_carrelage)
     print('y_carrelage : ', y_carrelage)
     #print('theta_carrelage : ', theta_carrelage)
-
 
     print("arrived_theta", arrived_theta)
     # print("arrived_position", arrived_position)
@@ -239,6 +240,13 @@ def callback(data):
                       linear_error=linear_error)
 
         arrived_position = (abs(x_goal - x_carrelage) < linear_error and abs(y_goal - y_carrelage) < linear_error)
+        print 'arrived postion: ', arrived_position
+        print 'error x: ', abs(x_goal - x_carrelage)
+        print 'error y: ', abs(y_goal - y_carrelage)
+        print 'theta carrelage ', theta_carrelage
+
+        print 'x_robot: ', x_robot
+        print 'y_robot: ', y_robot
 
         if arrived_position:
             arrived_theta = False

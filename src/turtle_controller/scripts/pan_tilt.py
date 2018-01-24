@@ -16,6 +16,8 @@ from turtle_controller.cfg import HSVParamsConfig
 import copy
 from sensor_msgs.msg import Image, CameraInfo
 from axis_camera.msg import Axis
+import nav_msgs.msg
+import numpy
 
 IRIS_VALUE = 500
 
@@ -28,33 +30,92 @@ class PanTiltController:
         self.mode = "search"
         self.sens = 1
         self.track_file = 'track_file.txt'
+        self.x_robot_init, self.y_robot_init, self.theta_robot_init = None, None, None
+        self.x_carrelage = None
+        self.y_carrelage = None
+        self.theta_carrelage = None
+
+        with open(self.track_file, 'w') as f:
+            pass
 
         # Subscribers
         self.camera_info_sub = rospy.Subscriber('/state', 
             Axis, self.camera_callback, queue_size = 1)
         self.coordinates_turtle_sub = rospy.Subscriber('/coordinates', 
             geometry_msgs.msg.Point, self.coordinates_callback, queue_size = 1)
+        self.odom_sub = rospy.Subscriber("/odom", nav_msgs.msg.Odometry, self.odom_callback)
 
         # Publishers
         self.cmd_pub = rospy.Publisher('cmd', Axis, queue_size = 1)
 
 
-    def camera_callback(self, msg):
+    def odom_callback(self, data):
 
-        def save_new_track():
+        print("odom_callback")
+
+        def quater2yaw(q):
+            yaw = math.atan2(2.0*(q.y*q.z + q.w*q.x), q.w*q.w - q.x*q.x - q.y*q.y + q.z*q.z);
+            pitch = math.asin(-2.0*(q.x*q.z - q.w*q.y))
+            roll = math.atan2(2.0*(q.x*q.y + q.w*q.z), q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z)
+            return yaw, pitch, roll
+
+        def normalise_angle(angle):
+            if angle >= 0.0 and angle <= 2*numpy.pi:
+                return angle
+            elif angle > 2*numpy.pi:
+                output_angle = angle
+                while output_angle > 2*numpy.pi:
+                    output_angle -= 2*numpy.pi
+                return output_angle
+            else:
+                output_angle = angle
+                while output_angle < 0:
+                    output_angle += 2 * numpy.pi
+                return output_angle
+
+
+        x_robot = data.pose.pose.position.x
+        y_robot = data.pose.pose.position.y
+        
+        yaw, pitch, roll = quater2yaw(data.pose.pose.orientation)
+        theta_robot = normalise_angle(roll)
+
+        if self.x_robot_init is None:
+            self.x_robot_init, self.y_robot_init, self.theta_robot_init = x_robot, y_robot, theta_robot
+
+        self.x_carrelage = x_robot - self.x_robot_init
+        self.y_carrelage = y_robot - self.y_robot_init
+        self.theta_carrelage = normalise_angle(theta_robot - self.theta_robot_init)
+
+
+    def save_new_track(self):
+        print('{}\t{}\t{}\t{}'.format(self.camera_info.pan, self.camera_info.tilt, self.x_carrelage, self.y_carrelage))
+
+        if (self.camera_info.pan is not None and self.camera_info.tilt is not None 
+            and self.x_carrelage is not None and self.y_carrelage is not None):
+
+            print("I'm saving !")
+
             with open(self.track_file, 'a') as f:
                 s = '{},{},{},{}\n'.format(self.camera_info.pan, 
-                    self.camera_info.tilt, self.coordinates.x, self.coordinates.y)
+                    self.camera_info.tilt, self.x_carrelage, self.y_carrelage)
                 f.write(s)
+
+
+    def camera_callback(self, msg):
+
+        print("camera_callback")
 
         self.camera_info = msg
         self.convert()
 
         time.sleep(0.2)
-        save_new_track()
+        self.save_new_track()
         self.cmd_pub.publish(self.camera_info)
 
+
     def coordinates_callback(self, msg):
+        print("coordinates_callback")
         self.coordinates = msg
         
 
