@@ -12,8 +12,8 @@ import sys
 import nav_msgs.msg
 
 
-LINEAR_ERROR = 0.3
-ANGULAR_ERROR = 0.02
+LINEAR_ERROR = 0.2
+ANGULAR_ERROR = 0.005
 
 
 ANGULAR_VELOCITY = 0.3
@@ -158,7 +158,8 @@ def walk_franklin(x_i, y_i, x_f, y_f, linear_velocity, linear_error):
 def odom_callback(data):
 
     global pub_cmd, msg, arrived_position, angular_velocity, arrived_theta, linear_error,\
-    x_odom_init, y_odom_init, theta_odom_init, current_error_on_x, current_error_on_y
+    x_odom_init, y_odom_init, theta_odom_init, current_error_on_x, current_error_on_y,\
+    X_poses, Y_poses, THETA_poses, index_pose, x_goal_carrelage, y_goal_carrelage, theta_goal_carrelage
 
 
      #on recupere les positions courrantes du robot:
@@ -174,7 +175,7 @@ def odom_callback(data):
         x_odom_init, y_odom_init, theta_odom_init = x_odom, y_odom, theta_odom
         # print('x_robot_init : ', x_robot_init)
         # print('y_robot_init : ', y_robot_init)
-        print('theta_robot_init : ', theta_robot_init)
+        print('theta_odom_init : ', theta_odom_init)
 
     #on a les coordonnes du but dans le repere du carrelage, on veut les mettre dans le repere odom init:
     x_goal_odom_init = x_goal_carrelage/coef_prop - x_odom_init
@@ -182,12 +183,11 @@ def odom_callback(data):
     theta_goal_odom_init = theta_goal_carrelage - theta_odom_init
 
     
-
     # print('x_goal : ', x_goal)
     # print('y_goal : ', y_goal)
     # print('theta_goal : ', theta_goal)
 
-    #print('data.pose.pose.orientation : ', data.pose.pose.orientation)
+    # print('data.pose.pose.orientation : ', data.pose.pose.orientation)
     
 
     # print('x_robot : ', x_robot)
@@ -201,8 +201,10 @@ def odom_callback(data):
     y_current_odom_init = y_odom - y_odom_init
     theta_current_odom_init = theta_odom - theta_odom_init
 
-    x_carrelage = x_current_odom_init*coef_prop + x_carrelage_init 
-    y_carrelage = y_current_odom_init*coef_prop + y_carrelage_init
+    # TODO : on a ajoute une valeur absolue: bien ou pas bien ?
+    x_carrelage = abs(x_current_odom_init*coef_prop + x_carrelage_init)
+    y_carrelage = abs(y_current_odom_init*coef_prop + y_carrelage_init)
+
     theta_carrelage_init= 0.0   #on suppose ici que la tortue est placee initialement avec un angle theta = 0.0 :D
     theta_carrelage = theta_current_odom_init + theta_carrelage_init
 
@@ -270,10 +272,6 @@ def odom_callback(data):
             #pour qu'il retente d'atteindre sa position en esperant qu'il s en 
             #soit approche 
 
-
-
-
-
         if arrived_position:
             arrived_theta = False
 
@@ -293,7 +291,17 @@ def odom_callback(data):
     else:
         print ("Franklin au rapport, destination atteinte mon colonel!")
 
+        index_pose += 1
+        if index_pose < len(X_poses):
+            arrived_position = False
+            arrived_theta = False
+            x_goal_carrelage = X_poses[index_pose]
+            y_goal_carrelage = Y_poses[index_pose]
+            theta_goal_carrelage = normalise_angle(THETA_poses[index_pose])
+
+
     print 40 * '#'
+    #print('Mon objectif est x = {} et y = {}'.format(x_goal_carrelage, y_goal_carrelage))
     print 'theta carrelage: ', normalise_angle(theta_carrelage)
     print 'theta obj: ', normalise_angle(theta_obj)
     print 'arrived theta/position: ', arrived_theta, arrived_position
@@ -311,13 +319,34 @@ if __name__ == '__main__':
     x_goal_carrelage = float(sys.argv[1])   #la position but dans le ref carrelage absolu_
     y_goal_carrelage = float(sys.argv[2])
     theta_goal_carrelage = float(sys.argv[3])
+
     x_carrelage_init = float(sys.argv[4])
     y_carrelage_init = float(sys.argv[5])
 
+    try:
+        file_poses = sys.argv[6]
+        print('Poses')
+        with open(file_poses, 'r') as f:
+            lines = [l.rstrip('\n').split('\t') for l in f]
+            X_poses = [float(l[0]) for l in lines]
+            Y_poses = [float(l[1]) for l in lines]
+            THETA_poses = [float(l[2]) for l in lines]
+        print('Poses fini.')
+    except Exception as e:
+        print(e)
+        print('No poses.txt')
+        X_poses = [x_goal_carrelage]
+        Y_poses = [y_goal_carrelage]
+        THETA_poses = [theta_goal_carrelage]
+
+    index_pose = 0
+
+    x_goal_carrelage = X_poses[index_pose]
+    y_goal_carrelage = Y_poses[index_pose]
+    theta_goal_carrelage = normalise_angle(THETA_poses[index_pose])
+
     current_error_on_x = abs(x_carrelage_init - x_goal_carrelage)
     current_error_on_y = abs(y_carrelage_init - y_goal_carrelage)
-
-    theta_goal_carrelage = normalise_angle(theta_goal_carrelage)
 
     x_odom_init, y_odom_init, theta_odom_init = None, None, None
 
