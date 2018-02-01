@@ -99,6 +99,9 @@ def pantilt2xy(pan, tilt):
 	print('x : ', x)
 	print('y : ', y)
 
+	with open(os.path.join('pt.txt'), 'w') as f:
+		f.write('{}\t{}\n'.format(x, y))
+
 	return x, y
 
 

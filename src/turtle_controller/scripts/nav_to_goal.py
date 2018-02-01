@@ -12,21 +12,103 @@ import sys
 import nav_msgs.msg
 
 
-LINEAR_ERROR = 0.2
+import numpy as np
+import random
+from random import randint
+
+import rospy
+import os
+
+import sklearn
+from sklearn.svm import NuSVR
+
+from axis_camera.msg import Axis
+import geometry_msgs.msg
+
+
+LINEAR_ERROR = 0.4
 ANGULAR_ERROR = 0.005
 
-
 ANGULAR_VELOCITY = 0.3
-LINEAR_VELOCITY = 0.2
+LINEAR_VELOCITY = 0.5
+
+coef_prop = 3.46    #coefficient de proportionnalite permettant de passer de deplacement 
+
+def train_svms():
+
+    
+    with open(os.path.join('src/turtle_controller/scripts/data/', 'data_pan_tilt.csv'), 'r') as f:
+        lines = [l.rstrip('\n').split(',') for l in f][1:]
+
+    pans = [float(p[0]) for p in lines]
+    tilts = [float(t[1]) for t in lines]
+    x_carr = [float(x[2]) for x in lines]
+    y_carr = [float(y[3]) for y in lines]
+
+    c = list(zip(pans, tilts, x_carr, y_carr))
+    random.shuffle(c)
+    pans, tilts, x_carr, y_carr = zip(*c)
+
+    train_percentage = 0.8
+    train_len = int(train_percentage * len(pans))
+
+    pans_train, pans_test = pans[:train_len], pans[train_len:]
+    tilts_train, tilts_test = tilts[:train_len], tilts[train_len:]
+    x_carr_train, x_carr_test = x_carr[:train_len], x_carr[train_len:]
+    y_carr_train, y_carr_test = y_carr[:train_len], y_carr[train_len:]
+
+    # X
+    # Train
+    X_train = np.asarray([[i, j] for i, j in zip(pans_train, tilts_train)])
+    y_train = np.asarray([i for i in x_carr_train])
+
+    regr_x = NuSVR(nu=0.1, kernel='linear')
+    regr_x.fit(X_train, y_train)
+
+    print(regr_x.score(X_train, y_train))
+
+    # Test
+    X_test = np.asarray([[i, j] for i, j in zip(pans_test, tilts_test)])
+    y_test = np.asarray([i for i in x_carr_test])
+
+    print(regr_x.score(X_test, y_test))
+
+    # Y
+    # Train
+    X_train = np.asarray([[i, j] for i, j in zip(pans_train, tilts_train)])
+    y_train = np.asarray([i for i in y_carr_train])
+
+    regr_y = NuSVR(nu=0.1, kernel='linear')
+    regr_y.fit(X_train, y_train)
+
+    print(regr_y.score(X_train, y_train))
+
+    # Test
+    X_test = np.asarray([[i, j] for i, j in zip(pans_test, tilts_test)])
+    y_test = np.asarray([i for i in y_carr_test])
+
+    print(regr_y.score(X_test, y_test))
+
+    return regr_x, regr_y
 
 
-coef_prop = 3.46
+def pantilt2xy(pan, tilt):
 
-def equal_signe(x,y):
-    if x>=0 and y>=0 or x<=0 and y<=0:
-        return True
-    else:
-        return False
+    global regr_x, regr_y
+
+    pt = np.asarray([[pan, tilt]])
+    #pt = [pan, tilt]
+    x = regr_x.predict(pt)[0]
+    y = regr_y.predict(pt)[0]
+
+    # print('#'*50)
+    # print('pan : ', pan)
+    # print('tilt : ', tilt)
+    # print('x : ', x)
+    # print('y : ', y)
+
+    return x, y
+
 
 def quater2yaw(q):
 
@@ -43,6 +125,18 @@ def vitesse_rotation(theta_carrelage,
                      vitesse_angulaire = 1.0,
                      linear_error = None):
     global msg
+
+    return ANGULAR_VELOCITY
+
+    #au moment ou il s'approche, la vitesse est divisee par 2
+
+    theta_carrelage = normalise_angle(theta_carrelage)
+    theta_carrelage = normalise_angle(theta_carrelage)
+
+    if abs(abs(theta_carrelage) - abs(theta_obj)) < 0.5:
+        return ANGULAR_VELOCITY * 0.3
+    else:
+         return ANGULAR_VELOCITY
 
     if linear_error is None:
         V = vitesse_angulaire
@@ -159,7 +253,8 @@ def odom_callback(data):
 
     global pub_cmd, msg, arrived_position, angular_velocity, arrived_theta, linear_error,\
     x_odom_init, y_odom_init, theta_odom_init, current_error_on_x, current_error_on_y,\
-    X_poses, Y_poses, THETA_poses, index_pose, x_goal_carrelage, y_goal_carrelage, theta_goal_carrelage
+    X_poses, Y_poses, THETA_poses, index_pose, x_goal_carrelage, y_goal_carrelage, theta_goal_carrelage,\
+    x_carrelage_init, y_carrelage_init
 
 
      #on recupere les positions courrantes du robot:
@@ -268,7 +363,15 @@ def odom_callback(data):
             current_error_on_y = new_error_on_y
 
         if new_error_on_x > current_error_on_x and new_error_on_y > current_error_on_y:
-            print "je pars dans les choux" #faire une boucle de retour ici 
+            print "je pars dans les choux" #faire une boucle de retour ici
+
+            # cette solution marche pas parce qu il se remet dans les chous tout seul    
+
+            #arrived_position = False
+            #arrived_theta = False
+
+
+
             #pour qu'il retente d'atteindre sa position en esperant qu'il s en 
             #soit approche 
 
@@ -297,6 +400,24 @@ def odom_callback(data):
             arrived_theta = False
             x_goal_carrelage = X_poses[index_pose]
             y_goal_carrelage = Y_poses[index_pose]
+            x_carrelage_init = X_poses[index_pose-1]
+            y_carrelage_init = Y_poses[index_pose-1]
+
+            while True:
+                print('while true')
+                try:
+                    with open(os.path.join('src/turtle_controller/scripts/', 'pt.txt'), 'r') as f:
+                        lines = [l.rstrip('\n') for l in f]
+                        if len(lines):
+                            l = lines[0].split('\t')
+                            x_carrelage = l[0]
+                            y_carrelage = l[1]
+                            break
+                except Exception as e:
+                    pass
+
+            # x_carrelage = X_poses[index_pose-1]
+            # y_carrelage = Y_poses[index_pose-1]
             theta_goal_carrelage = normalise_angle(THETA_poses[index_pose])
 
 
@@ -306,17 +427,21 @@ def odom_callback(data):
     print 'theta obj: ', normalise_angle(theta_obj)
     print 'arrived theta/position: ', arrived_theta, arrived_position
     print "x_carrelage: ", x_carrelage 
-    print "y_carrelage: ", y_carrelage 
-
+    print "y_carrelage: ", y_carrelage
+    print "x_goal_carrelage: ", x_goal_carrelage 
+    print "y_goal_carrelage: ", y_goal_carrelage  
 
     pub_cmd.publish(msg)
 
 
 if __name__ == '__main__':
 
+    import time
+    import os
+
     print('***********************************')
 
-    x_goal_carrelage = float(sys.argv[1])   #la position but dans le ref carrelage absolu_
+    x_goal_carrelage = float(sys.argv[1])   #la position but dans le ref carrelage absolu
     y_goal_carrelage = float(sys.argv[2])
     theta_goal_carrelage = float(sys.argv[3])
 
@@ -326,6 +451,8 @@ if __name__ == '__main__':
     try:
         file_poses = sys.argv[6]
         print('Poses')
+        print(file_poses)
+        file_poses = os.path.join('src/turtle_controller/scripts/', file_poses)
         with open(file_poses, 'r') as f:
             lines = [l.rstrip('\n').split('\t') for l in f]
             X_poses = [float(l[0]) for l in lines]
@@ -338,6 +465,15 @@ if __name__ == '__main__':
         X_poses = [x_goal_carrelage]
         Y_poses = [y_goal_carrelage]
         THETA_poses = [theta_goal_carrelage]
+
+    print(X_poses)
+    print(Y_poses)
+    print(THETA_poses)
+
+    regr_x, regr_y = train_svms()
+
+
+    # time.sleep(100)
 
     index_pose = 0
 
