@@ -135,7 +135,7 @@ def rotate_franklin(theta_carrelage,
     # print (20 * '#')
 
 
-    if abs(normalise_angle(theta_carrelage) -normalise_angle(theta_obj)) > angular_error:
+    if abs(normalise_angle(theta_carrelage) - normalise_angle(theta_obj)) > angular_error:
         msg.angular.z = angular_velocity
     else:
         msg.angular.z = 0.0
