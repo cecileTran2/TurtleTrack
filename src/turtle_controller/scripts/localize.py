@@ -28,7 +28,7 @@ class localizeController:
 def train_svms():
 
 	
-	with open(os.path.join('data', 'data_pan_tilt.csv'), 'r') as f:
+	with open(os.path.join('/usr/users/promo2018/tran_cec/projet_track/src/turtle_controller/scripts/data/', 'data_pan_tilt.csv'), 'r') as f:
 		lines = [l.rstrip('\n').split(',') for l in f][1:]
 
 	pans = [float(p[0]) for p in lines]

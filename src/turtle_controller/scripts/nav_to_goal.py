@@ -10,34 +10,31 @@ import numpy
 import math
 import sys
 import nav_msgs.msg
-
-
 import numpy as np
 import random
 from random import randint
-
 import rospy
 import os
-
 import sklearn
 from sklearn.svm import NuSVR
-
 from axis_camera.msg import Axis
 import geometry_msgs.msg
 
 
 LINEAR_ERROR = 0.4
-ANGULAR_ERROR = 0.005
+ANGULAR_ERROR = 0.05
 
 ANGULAR_VELOCITY = 0.3
-LINEAR_VELOCITY = 0.5
+LINEAR_VELOCITY = 0.2
+
+init_with_svm = True
 
 coef_prop = 3.46    #coefficient de proportionnalite permettant de passer de deplacement 
 
 def train_svms():
 
     
-    with open(os.path.join('src/turtle_controller/scripts/data/', 'data_pan_tilt.csv'), 'r') as f:
+    with open(os.path.join('/usr/users/promo2018/tran_cec/projet_track/src/turtle_controller/scripts/data/', 'data_pan_tilt.csv'), 'r') as f:
         lines = [l.rstrip('\n').split(',') for l in f][1:]
 
     pans = [float(p[0]) for p in lines]
@@ -133,8 +130,8 @@ def vitesse_rotation(theta_carrelage,
     theta_carrelage = normalise_angle(theta_carrelage)
     theta_carrelage = normalise_angle(theta_carrelage)
 
-    if abs(abs(theta_carrelage) - abs(theta_obj)) < 0.5:
-        return ANGULAR_VELOCITY * 0.3
+    if abs(abs(theta_carrelage) - abs(theta_obj)) < (math.pi / 6.0):
+        return 0.05
     else:
          return ANGULAR_VELOCITY
 
@@ -249,12 +246,23 @@ def walk_franklin(x_i, y_i, x_f, y_f, linear_velocity, linear_error):
         msg.linear.x = 0.0
 
 
+def svm_position_callback(data):
+    global x_svm, y_svm
+    #x_svm = int(data.x)
+    #y_svm = int(data.y)
+    x_svm = data.x
+    y_svm = data.y
+    print "x, y :", x_svm, y_svm
+
 def odom_callback(data):
 
     global pub_cmd, msg, arrived_position, angular_velocity, arrived_theta, linear_error,\
-    x_odom_init, y_odom_init, theta_odom_init, current_error_on_x, current_error_on_y,\
+    x_odom_init, y_odom_init, theta_odom_init, previous_error_on_x, previous_error_on_y,\
     X_poses, Y_poses, THETA_poses, index_pose, x_goal_carrelage, y_goal_carrelage, theta_goal_carrelage,\
-    x_carrelage_init, y_carrelage_init
+    x_carrelage_init, y_carrelage_init, x_svm, y_svm, already_corrected, count, LINEAR_ERROR
+
+    x_carrelage_init = x_svm
+    y_carrelage_init = y_svm
 
 
      #on recupere les positions courrantes du robot:
@@ -262,11 +270,12 @@ def odom_callback(data):
     y_odom = data.pose.pose.position.y
 
     yaw, pitch, roll = quater2yaw(data.pose.pose.orientation)
-    print "yaw pitch roll: ", yaw, pitch, roll
+    #print "yaw pitch roll: ", yaw, pitch, roll
     theta_odom = normalise_angle(roll)
 
     #on recupere le repere odom initial
     if x_odom_init is None:
+
         x_odom_init, y_odom_init, theta_odom_init = x_odom, y_odom, theta_odom
         # print('x_robot_init : ', x_robot_init)
         # print('y_robot_init : ', y_robot_init)
@@ -296,9 +305,17 @@ def odom_callback(data):
     y_current_odom_init = y_odom - y_odom_init
     theta_current_odom_init = theta_odom - theta_odom_init
 
+    #if(x_svm is not None and y_svm is not None):
+    #    x_carrelage = x_svm
+    #    y_carrelage = y_svm
+    #else:
+    if x_carrelage_init is not None:
+        x_carrelage = abs(x_current_odom_init*coef_prop + x_carrelage_init)
+        y_carrelage = abs(y_current_odom_init*coef_prop + y_carrelage_init)
+
     # TODO : on a ajoute une valeur absolue: bien ou pas bien ?
-    x_carrelage = abs(x_current_odom_init*coef_prop + x_carrelage_init)
-    y_carrelage = abs(y_current_odom_init*coef_prop + y_carrelage_init)
+    # x_carrelage = abs(x_current_odom_init*coef_prop + x_carrelage_init)
+    # y_carrelage = abs(y_current_odom_init*coef_prop + y_carrelage_init)
 
     theta_carrelage_init= 0.0   #on suppose ici que la tortue est placee initialement avec un angle theta = 0.0 :D
     theta_carrelage = theta_current_odom_init + theta_carrelage_init
@@ -348,7 +365,12 @@ def odom_callback(data):
 
         #current_angular_error_permitted = numpy.arctan(LINEAR_ERROR/distance_to_go)
         #error_angle = abs(theta_obj - theta_carrelage)
-        arrived_position = (abs(x_goal_carrelage - x_carrelage) < LINEAR_ERROR and abs(y_goal_carrelage - y_carrelage) < LINEAR_ERROR)
+        arrived_position_carrelage = (abs(x_goal_carrelage - x_carrelage) < LINEAR_ERROR and abs(y_goal_carrelage - y_carrelage) < LINEAR_ERROR)
+        arrived_position_svm = (abs(x_goal_carrelage - x_svm) < LINEAR_ERROR and abs(y_goal_carrelage - y_svm) < LINEAR_ERROR)
+
+        arrived_position = arrived_position_svm or arrived_position_carrelage
+
+
         arrived_only_one_position = (abs(x_goal_carrelage - x_carrelage) < LINEAR_ERROR or abs(y_goal_carrelage - y_carrelage) < LINEAR_ERROR)
 
         #tentative de debut de correction de quand il part dans la mauvaise direction
@@ -358,22 +380,65 @@ def odom_callback(data):
         new_error_on_x = abs(x_goal_carrelage - x_carrelage)
         new_error_on_y = abs(y_goal_carrelage - y_carrelage)
 
-        if new_error_on_x < current_error_on_x or new_error_on_y < current_error_on_y:
-            current_error_on_x = new_error_on_x
-            current_error_on_y = new_error_on_y
-
-        if new_error_on_x > current_error_on_x and new_error_on_y > current_error_on_y:
+        if new_error_on_x > previous_error_on_x + 0.1 and new_error_on_y > previous_error_on_y + 0.1:
             print "je pars dans les choux" #faire une boucle de retour ici
+            
 
-            # cette solution marche pas parce qu il se remet dans les chous tout seul    
+            # cette solution marche pas parce qu il se remet dans les choux tout seul
+            if not already_corrected:
 
-            #arrived_position = False
-            #arrived_theta = False
+                print 60* "*"
+
+                arrived_position = False
+                arrived_theta = False
+                x_carrelage = x_svm
+                y_carrelage = y_svm
+                x_carrelage_init = x_carrelage
+                y_carrelage_init = y_carrelage
+
+                theta_carrelage_init = theta_carrelage #????
+
+                print x_carrelage_init, y_carrelage_init, theta_carrelage_init
+                time.sleep(8)
+
+            else:
+                LINEAR_ERROR += 0.3
+
+                arrived_position = False
+                arrived_theta = False
+                x_carrelage = x_svm
+                y_carrelage = y_svm
+                x_carrelage_init = x_carrelage
+                y_carrelage_init = y_carrelage
+
+                theta_carrelage_init = theta_carrelage #????
+
+                print x_carrelage_init, y_carrelage_init, theta_carrelage_init
+                time.sleep(8)
 
 
+
+                #print 60* "!"
+                #print "je suis perdu..."
+                x_carrelage_init = x_carrelage
+                y_carrelage_init = y_carrelage
+                ####x_goal = x_carrelage
+                ####y_goal = y_carrelage
+                #theta_goal = theta_carrelage
+                ####LINEAR_ERROR = 1000
+                ####ANGULAR_ERROR = 1000
+                ####raise Exception("rhsz")
+
+            already_corrected = True
 
             #pour qu'il retente d'atteindre sa position en esperant qu'il s en 
             #soit approche 
+
+        previous_error_on_x = new_error_on_x
+        previous_error_on_y = new_error_on_y
+        
+
+        
 
         if arrived_position:
             arrived_theta = False
@@ -393,6 +458,7 @@ def odom_callback(data):
 
     else:
         print ("Franklin au rapport, destination atteinte mon colonel!")
+        already_corrected = False
 
         index_pose += 1
         if index_pose < len(X_poses):
@@ -422,10 +488,14 @@ def odom_callback(data):
 
 
     print 40 * '#'
+    print(count); count+=1
+    print 40 * '#'
     #print('Mon objectif est x = {} et y = {}'.format(x_goal_carrelage, y_goal_carrelage))
     print 'theta carrelage: ', normalise_angle(theta_carrelage)
     print 'theta obj: ', normalise_angle(theta_obj)
     print 'arrived theta/position: ', arrived_theta, arrived_position
+    if arrived_theta:
+        print 60 * '_'
     print "x_carrelage: ", x_carrelage 
     print "y_carrelage: ", y_carrelage
     print "x_goal_carrelage: ", x_goal_carrelage 
@@ -445,11 +515,12 @@ if __name__ == '__main__':
     y_goal_carrelage = float(sys.argv[2])
     theta_goal_carrelage = float(sys.argv[3])
 
-    x_carrelage_init = float(sys.argv[4])
-    y_carrelage_init = float(sys.argv[5])
+    #x_carrelage_init = float(sys.argv[4])
+    #y_carrelage_init = float(sys.argv[5])
 
     try:
-        file_poses = sys.argv[6]
+        file_poses = sys.argv[4]
+        #file_poses = sys.argv[6]
         print('Poses')
         print(file_poses)
         file_poses = os.path.join('src/turtle_controller/scripts/', file_poses)
@@ -459,6 +530,7 @@ if __name__ == '__main__':
             Y_poses = [float(l[1]) for l in lines]
             THETA_poses = [float(l[2]) for l in lines]
         print('Poses fini.')
+
     except Exception as e:
         print(e)
         print('No poses.txt')
@@ -472,6 +544,18 @@ if __name__ == '__main__':
 
     regr_x, regr_y = train_svms()
 
+    x_svm = None
+    y_svm = None
+
+    previous_error_on_y = 1000
+    previous_error_on_x = 1000
+    
+
+
+
+    already_corrected = False
+
+    count = 0
 
     # time.sleep(100)
 
@@ -481,8 +565,7 @@ if __name__ == '__main__':
     y_goal_carrelage = Y_poses[index_pose]
     theta_goal_carrelage = normalise_angle(THETA_poses[index_pose])
 
-    current_error_on_x = abs(x_carrelage_init - x_goal_carrelage)
-    current_error_on_y = abs(y_carrelage_init - y_goal_carrelage)
+
 
     x_odom_init, y_odom_init, theta_odom_init = None, None, None
 
@@ -501,5 +584,7 @@ if __name__ == '__main__':
     #mettre cmd_vel et remaper dans le fichier launch
     #rospy.Subscriber("/turtle1/pose", Pose, callback)
     rospy.Subscriber("/odom", nav_msgs.msg.Odometry, odom_callback)
+    rospy.Subscriber("/ArenaPosition", geometry_msgs.msg.Point, svm_position_callback)
+
 
 rospy.spin()    # keeps your node from exiting until the node has been shutdown.

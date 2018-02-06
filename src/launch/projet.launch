@@ -1,0 +1,15 @@
+<launch>
+
+  <node pkg="axis_camera" type="axis.py" name="axis_camera">
+    <param name="~hostname" value ="axis4.smart.metz.supelec.fr"/>
+    <param name="~username" value ="coucou"/>
+    <param name="~password" value ="coucou"/>
+  </node>
+
+  <node pkg="rqt_image_view" type="rqt_image_view" name="rqt_image_view"/>
+
+  <node pkg="axis_camera" type="axis_ptz.py" name="axis_ptz">
+    <param name="~hostname" value ="axis4.smart.metz.supelec.fr"/>
+  </node>
+  
+</launch>

@@ -18,8 +18,11 @@ from sensor_msgs.msg import Image, CameraInfo
 from axis_camera.msg import Axis
 import nav_msgs.msg
 import numpy
+import random
 
 IRIS_VALUE = 500
+
+liste_pan_tilt_search = [[-76,-27], [-65,-50], [-44,-50], [-34,-34], [-55, -34], [-55,-27]]
 
 class PanTiltController:
 
@@ -172,8 +175,16 @@ class PanTiltController:
             self.camera_info.iris = IRIS_VALUE
 
         elif self.mode == 'search':
-            self.camera_info.tilt = -30.0
-            self.camera_info.pan += self.sens * 10
+
+            index_pan_tilt = random.randint(0, len(liste_pan_tilt_search)-1)
+            pan_search,tilt_search = liste_pan_tilt_search[index_pan_tilt][0], liste_pan_tilt_search[index_pan_tilt][1]
+
+            self.camera_info.tilt = tilt_search
+            self.camera_info.pan = pan_search
+            time.sleep(1)
+
+            #self.camera_info.tilt = -30.0
+            #self.camera_info.pan += self.sens * 10
             print('Mode Search')
 
         if self.camera_info.pan >= 180.0 or self.camera_info.pan <= -180.0:
