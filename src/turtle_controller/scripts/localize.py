@@ -2,12 +2,10 @@
 
 import numpy as np
 import random
-from random import randint
 
 import rospy
 import os
 
-import sklearn
 from sklearn.svm import NuSVR
 
 from axis_camera.msg import Axis
@@ -21,13 +19,13 @@ class localizeController:
 
     def __init__(self):
     	# Subscribers
-        self.camera_info_sub = rospy.Subscriber('/state', 
+        self.camera_info_sub = rospy.Subscriber('/state',
             Axis, self.camera_callback, queue_size = 1)
 
 
 def train_svms():
 
-	
+
 	with open(os.path.join('/usr/users/promo2018/tran_cec/projet_track/src/turtle_controller/scripts/data/', 'data_pan_tilt.csv'), 'r') as f:
 		lines = [l.rstrip('\n').split(',') for l in f][1:]
 
@@ -83,7 +81,6 @@ def train_svms():
 	return regr_x, regr_y
 
 
-
 def pantilt2xy(pan, tilt):
 
 	global regr_x, regr_y
@@ -105,7 +102,6 @@ def pantilt2xy(pan, tilt):
 	return x, y
 
 
-
 def camera_callback(data_cam):
 
 	global pub_pos
@@ -125,7 +121,6 @@ def camera_callback(data_cam):
 	pub_pos.publish(msg)
 
 
-
 if __name__ == '__main__':
 
 	regr_x, regr_y = train_svms()
@@ -133,10 +128,7 @@ if __name__ == '__main__':
 	rospy.init_node('localize', anonymous=True)
 	msg = geometry_msgs.msg.Point()
 
-	#pub_cmd = rospy.Publisher('/turtle1/cmd_vel', geometry_msgs.msg.Twist, queue_size=10)
 	pub_pos = rospy.Publisher('/ArenaPosition', geometry_msgs.msg.Point, queue_size=10)
 	camera_info_sub = rospy.Subscriber('/state', Axis, camera_callback, queue_size = 1)
 
-	#rospy.Subscriber("/odom", nav_msgs.msg.Odometry, callback)
-
-rospy.spin()
+    rospy.spin()

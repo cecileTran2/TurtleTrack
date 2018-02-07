@@ -1,24 +1,18 @@
 #!/usr/bin/env python
-# license removed for brevity
+
+import time
+import math
+import random
+
+import numpy as np
 
 import rospy
-import std_msgs.msg
 import geometry_msgs.msg
 import sensor_msgs.msg
-from turtlesim.msg import Pose
-import sys
-import time
-import numpy as np
-import math
-import cv2
-from dynamic_reconfigure.server import Server
-from turtle_controller.cfg import HSVParamsConfig
-import copy
-from sensor_msgs.msg import Image, CameraInfo
-from axis_camera.msg import Axis
 import nav_msgs.msg
-import numpy
-import random
+
+from turtlesim.msg import Pose
+from axis_camera.msg import Axis
 
 IRIS_VALUE = 500
 
@@ -42,9 +36,9 @@ class PanTiltController:
             pass
 
         # Subscribers
-        self.camera_info_sub = rospy.Subscriber('/state', 
+        self.camera_info_sub = rospy.Subscriber('/state',
             Axis, self.camera_callback, queue_size = 1)
-        self.coordinates_turtle_sub = rospy.Subscriber('/coordinates', 
+        self.coordinates_turtle_sub = rospy.Subscriber('/coordinates',
             geometry_msgs.msg.Point, self.coordinates_callback, queue_size = 1)
         self.odom_sub = rospy.Subscriber("/odom", nav_msgs.msg.Odometry, self.odom_callback)
 
@@ -63,23 +57,23 @@ class PanTiltController:
             return yaw, pitch, roll
 
         def normalise_angle(angle):
-            if angle >= 0.0 and angle <= 2*numpy.pi:
+            if angle >= 0.0 and angle <= 2*np.pi:
                 return angle
-            elif angle > 2*numpy.pi:
+            elif angle > 2*np.pi:
                 output_angle = angle
-                while output_angle > 2*numpy.pi:
-                    output_angle -= 2*numpy.pi
+                while output_angle > 2*np.pi:
+                    output_angle -= 2*np.pi
                 return output_angle
             else:
                 output_angle = angle
                 while output_angle < 0:
-                    output_angle += 2 * numpy.pi
+                    output_angle += 2 * np.pi
                 return output_angle
 
 
         x_robot = data.pose.pose.position.x
         y_robot = data.pose.pose.position.y
-        
+
         yaw, pitch, roll = quater2yaw(data.pose.pose.orientation)
         theta_robot = normalise_angle(roll)
 
@@ -94,13 +88,13 @@ class PanTiltController:
     def save_new_track(self):
         print('{}\t{}\t{}\t{}'.format(self.camera_info.pan, self.camera_info.tilt, self.x_carrelage, self.y_carrelage))
 
-        if (self.camera_info.pan is not None and self.camera_info.tilt is not None 
+        if (self.camera_info.pan is not None and self.camera_info.tilt is not None
             and self.x_carrelage is not None and self.y_carrelage is not None):
 
             print("I'm saving !")
 
             with open(self.track_file, 'a') as f:
-                s = '{},{},{},{}\n'.format(self.camera_info.pan, 
+                s = '{},{},{},{}\n'.format(self.camera_info.pan,
                     self.camera_info.tilt, self.x_carrelage, self.y_carrelage)
                 f.write(s)
 
@@ -120,7 +114,7 @@ class PanTiltController:
     def coordinates_callback(self, msg):
         print("coordinates_callback")
         self.coordinates = msg
-        
+
 
     def convert(self):
 
@@ -183,8 +177,6 @@ class PanTiltController:
             self.camera_info.pan = pan_search
             time.sleep(1)
 
-            #self.camera_info.tilt = -30.0
-            #self.camera_info.pan += self.sens * 10
             print('Mode Search')
 
         if self.camera_info.pan >= 180.0 or self.camera_info.pan <= -180.0:
@@ -192,8 +184,8 @@ class PanTiltController:
             self.camera_info.pan += self.sens * 10.0
 
         print(self.camera_info.pan)
- 
-            
+
+
 if __name__ == '__main__':
 
     rospy.init_node('pan_tilt', anonymous=True)
